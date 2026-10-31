@@ -10,6 +10,12 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import NamedTuple
+
+
+class Point(NamedTuple):
+    latitude: float
+    longitude: float
 
 
 class PlaceKind(IntEnum):
