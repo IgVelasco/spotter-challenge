@@ -1,0 +1,13 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+    ports:
+      - "8000:8000"
+    volumes:
+      - db:/data
+
+volumes:
+  db:
