@@ -40,10 +40,11 @@ look like. Each item says why it was deferred and roughly what it would cost.
    the first station along the route is at mile 270. No AK, HI or DC stations at
    all. The API can only plan with the stations it has; it can't invent coverage.
 
-8. **Trip starts with an empty tank** and the first purchase is at a station near
-   the origin (decided with Nacho). The short drive from the origin to that station
-   is not charged. *Review:* make starting fuel a request option if Spotter expects
-   a full tank.
+8. **Trip starts with a full tank** (500 miles). The cost is the fuel bought along
+   the route, so a trip under 500 miles costs $0. An empty-tank start was tried and
+   dropped: with only 16 California rows, trips from LA had no station near the
+   origin. Planned: optional `starting_fuel_price_usd` to also cost the starting
+   fuel actually burned. *Review:* whether Spotter expects a different convention.
 
 9. **Detours to stations are not routed.** Stations within a corridor of the route
    are projected onto it; the drive off the highway and back isn't in the distance

@@ -1,7 +1,7 @@
 """Choose where to buy fuel, and how much, along a fixed route.
 
-Pure calculation: no database, HTTP or geometry. The vehicle starts the trip with
-an empty tank at mile 0, so a station must exist there.
+Pure calculation: no database, HTTP or geometry. The vehicle starts the trip at
+mile 0 with a full tank; only fuel bought along the way is costed.
 
 Rule at each station: if a strictly cheaper station is within range, buy just
 enough to reach the first one; otherwise buy enough to reach the destination, or
@@ -58,41 +58,44 @@ def plan_fuel_stops(
     range_miles: float = VEHICLE_RANGE_MILES,
     mpg: float = VEHICLE_MPG,
 ) -> FuelPlan:
-    _validate(stops, total_miles)
+    _validate(stops)
     plan = FuelPlan()
-    fuel = 0.0
+    fuel = range_miles / mpg
+    previous_mile = 0.0
     for index, current in enumerate(stops):
-        if index > 0:
-            fuel -= _gallons_between(stops[index - 1], current, mpg, fuel)
+        fuel -= _gallons_to(current.mile, previous_mile, mpg, fuel)
+        previous_mile = current.mile
         target_mile = _next_target_mile(stops, index, total_miles, range_miles)
         needed = min((target_mile - current.mile) / mpg, range_miles / mpg)
         gallons = needed - fuel
         if gallons > _TOLERANCE:
             plan.purchases.append(Purchase(current, gallons, _cost(gallons, current)))
             fuel += gallons
-    if stops and total_miles - stops[-1].mile > fuel * mpg + _TOLERANCE:
+    if total_miles - previous_mile > fuel * mpg + _TOLERANCE:
         raise InfeasibleRoute(
             f"Cannot reach the destination at mile {total_miles:.0f} "
-            f"from the last station at mile {stops[-1].mile:.0f}"
+            f"from {_describe(previous_mile)} on one tank"
         )
     return plan
 
 
-def _validate(stops, total_miles):
+def _validate(stops):
     if any(a.mile > b.mile for a, b in zip(stops, stops[1:], strict=False)):
         raise ValueError("Stops must be ordered by mile")
-    if total_miles > 0 and (not stops or stops[0].mile > 0):
-        raise InfeasibleRoute("No fuel station at the start of the route")
 
 
-def _gallons_between(previous, current, mpg, fuel):
-    gallons = (current.mile - previous.mile) / mpg
+def _gallons_to(mile, previous_mile, mpg, fuel):
+    gallons = (mile - previous_mile) / mpg
     if gallons > fuel + _TOLERANCE:
         raise InfeasibleRoute(
-            f"Cannot reach the station at mile {current.mile:.0f} "
-            f"from mile {previous.mile:.0f} on one tank"
+            f"Cannot reach the station at mile {mile:.0f} "
+            f"from {_describe(previous_mile)} on one tank"
         )
     return gallons
+
+
+def _describe(mile):
+    return "the start" if mile == 0 else f"the station at mile {mile:.0f}"
 
 
 def _next_target_mile(stops, index, total_miles, range_miles):
