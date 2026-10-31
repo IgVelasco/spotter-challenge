@@ -14,4 +14,4 @@ COPY --chown=app . .
 USER app
 
 EXPOSE 8000
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 2 --timeout 30"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py import_stations && gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 2 --timeout 30"]
