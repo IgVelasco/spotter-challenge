@@ -93,5 +93,6 @@ look like. Each item says why it was deferred and roughly what it would cost.
 ## Deliberately cut from the original design docs
 
 PostgreSQL, dataset versioning/activation, manual station access review, Census
-batch geocoding (doesn't fit highway-style addresses), OpenAPI generation, a second
-validation routing call, structured JSON logs. Revisit only if a reviewer asks.
+batch geocoding (doesn't fit highway-style addresses) and a second validation routing
+call. (OpenAPI docs and structured logs were cut at first and added later.) Revisit
+only if a reviewer asks.
