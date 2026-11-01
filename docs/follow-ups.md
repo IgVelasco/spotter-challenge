@@ -46,31 +46,41 @@ look like. Each item says why it was deferred and roughly what it would cost.
    origin. Planned: optional `starting_fuel_price_usd` to also cost the starting
    fuel actually burned. *Review:* whether Spotter expects a different convention.
 
-9. **Detours to stations are not routed.** Stations within a corridor of the route
+9. **A fixed $10 cost per stop is part of the optimisation.** Pure cheapest-fuel
+   plans made 15–18 stops coast to coast, many under 2 gallons; with $10/stop they
+   make 7 stops for ~1% more fuel spend. $10 is a judgement call (time off the
+   highway), not data. *Review:* expose it as an optional request field if callers
+   want to trade stops for price.
+
+10. **Purchases are in 0.1-gallon steps.** The planner works in whole miles of
+    range (station miles rounded, destination rounded up), so a purchase can be up
+    to ~0.1 gal more than the exact need. Negligible, and never short.
+
+11. **Detours to stations are not routed.** Stations within a corridor of the route
    are projected onto it; the drive off the highway and back isn't in the distance
    or cost. A safety margin on the 500-mile range covers it for feasibility.
    *Better:* a second ORS call through the chosen stations as waypoints, then re-plan
    on the real leg distances (the email allows 2–3 calls). Costs ~1–2 s per request.
 
-10. **Car routing profile.** ORS `driving-car` is used. ORS also has `driving-hgv`
+12. **Car routing profile.** ORS `driving-car` is used. ORS also has `driving-hgv`
    (heavy goods vehicles), more realistic for trucks. *Check:* its free-plan limits
    and whether routes differ meaningfully.
 
-11. **Lat/lon inputs are checked against US bounding boxes**, not real borders. A
+13. **Lat/lon inputs are checked against US bounding boxes**, not real borders. A
    point in Canada just north of the border box could pass. *Better:* a US polygon
    check (e.g. Natural Earth) if precise validation matters.
 
 ## Operations
 
-12. **Corridor matching takes ~0.3 s** on a 2,800-mile route (pure Python, 1-mile
+14. **Corridor matching takes ~0.3 s** on a 2,800-mile route (pure Python, 1-mile
    samples × grid cells). Fine next to the ~2 s ORS call. *Better:* vectorise with
    NumPy or simplify the route geometry first if latency matters.
 
-13. **Stations are cached in memory per process.** Re-running `import_stations`
+15. **Stations are cached in memory per process.** Re-running `import_stations`
    while the server runs needs a restart to be seen (Docker always imports before
    starting the server).
 
-14. **ORS free quota is 2,000 requests/day** (`api.heigit.org`). Routes are cached by
+16. **ORS free quota is 2,000 requests/day** (`api.heigit.org`). Routes are cached by
    endpoints, but there's no app-level rate limit to protect the key.
 
 ## Deliberately cut from the original design docs
