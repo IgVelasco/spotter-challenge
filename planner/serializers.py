@@ -11,12 +11,18 @@ from planner.services import CORRIDOR_MILES
 
 # The full ORS geometry has a point every few hundred feet (~500 KB coast to coast).
 RESPONSE_LINE_SPACING_MILES = 0.5
+MAX_LOCATION_TEXT_LENGTH = 255
 
 
 class LocationField(serializers.Field):
-    default_error_messages = {"invalid": "{message}"}
+    default_error_messages = {
+        "invalid": "{message}",
+        "too_long": f"Use at most {MAX_LOCATION_TEXT_LENGTH} characters.",
+    }
 
     def to_internal_value(self, data):
+        if isinstance(data, str) and len(data) > MAX_LOCATION_TEXT_LENGTH:
+            self.fail("too_long")
         try:
             return resolve_location(data)
         except LocationError as error:
@@ -52,10 +58,16 @@ def map_url(request, trip, starting_fuel_price):
     return request.build_absolute_uri(f"{reverse('route-map')}?{urlencode(query)}")
 
 
-def trip_payload(trip, request, starting_fuel_price=None):
+def _endpoint(query, point):
+    return {"query": query, "latitude": point.latitude, "longitude": point.longitude}
+
+
+def trip_payload(trip, request, queries, starting_fuel_price=None):
+    """queries: the start and finish exactly as the caller sent them."""
+    start_query, finish_query = queries
     return {
-        "start": {"latitude": trip.start.latitude, "longitude": trip.start.longitude},
-        "finish": {"latitude": trip.finish.latitude, "longitude": trip.finish.longitude},
+        "start": _endpoint(start_query, trip.start),
+        "finish": _endpoint(finish_query, trip.finish),
         "route": {
             "distance_miles": round(trip.route.distance_miles, 1),
             "duration_hours": round(trip.route.duration_seconds / 3600, 2),

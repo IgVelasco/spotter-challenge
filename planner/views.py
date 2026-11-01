@@ -29,7 +29,8 @@ class RoutePlanView(APIView):
         data = serializer.validated_data
         price = data.get("starting_fuel_price_usd")
         trip = services.plan_trip(data["start"], data["finish"], starting_fuel_price=price)
-        return Response(trip_payload(trip, request, price))
+        queries = (request.data["start"], request.data["finish"])
+        return Response(trip_payload(trip, request, queries, price))
 
 
 def route_map(request):
@@ -54,7 +55,10 @@ def route_map(request):
         if mapping is None:
             raise
         return _map_error(request, str(error), mapping[0])
-    return render(request, "planner/map.html", {"trip": trip_payload(trip, request, price)})
+    queries = (request.GET["start"], request.GET["finish"])
+    return render(
+        request, "planner/map.html", {"trip": trip_payload(trip, request, queries, price)}
+    )
 
 
 def _map_error(request, message, status):

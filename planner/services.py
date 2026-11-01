@@ -46,9 +46,11 @@ def plan_trip(start: Point, finish: Point, starting_fuel_price: Decimal | None =
     else:
         route, routing_calls = fetch_route(start, finish), 1
 
-    candidates = stations_along_route(
-        route.coordinates, route.distance_miles, _stations(), CORRIDOR_MILES
-    )
+    candidates = []
+    if route.distance_miles > PLANNING_RANGE_MILES:
+        candidates = stations_along_route(
+            route.coordinates, route.distance_miles, _stations(), CORRIDOR_MILES
+        )
     plan = plan_fuel_stops(
         [FuelStop(c.mile, c.station.price_per_gallon, c) for c in candidates],
         route.distance_miles,

@@ -6,7 +6,8 @@ route, where to buy fuel along it, and what the fuel costs, for a vehicle with a
 
 - **One routing call per trip** (openrouteservice); repeated trips are cached.
 - **~2–3 s** for a coast-to-coast trip, almost all of it the routing provider;
-  local planning takes ~0.3 s. Cached repeats return in ~0.3 s.
+  local planning takes ~0.3 s. Cached repeats return in ~0.3 s. Trips that fit in
+  one tank skip station matching entirely.
 - **Fewer, sensible stops:** the planner minimises fuel cost plus a small fixed cost
   per stop. LA → New York takes 7 stops instead of 15 tiny top-ups.
 
@@ -51,20 +52,21 @@ python manage.py runserver
 
 | Field | Required | Format |
 |---|---|---|
-| `start` | yes | `"City, ST"`, `"lat,lon"`, or `{"latitude": .., "longitude": ..}` |
+| `start` | yes | `"City, ST"`, `"lat,lon"`, or `{"latitude": .., "longitude": ..}` (text up to 255 characters) |
 | `finish` | yes | same as `start` |
 | `starting_fuel_price_usd` | no | price per gallon paid for the starting tank, e.g. `"3.50"` |
 
 City names are resolved offline from Census data, so they don't use routing
-quota. Coordinates must be inside the US.
+quota. Coordinates must be inside the US. The response echoes each input as `query`
+next to the coordinates it resolved to.
 
 Example: Chicago → Denver with `"starting_fuel_price_usd": "3.50"` (real
 response, route geometry shortened):
 
 ```json
 {
-  "start": {"latitude": 41.837045, "longitude": -87.684939},
-  "finish": {"latitude": 39.76185, "longitude": -104.881105},
+  "start": {"query": "Chicago, IL", "latitude": 41.837045, "longitude": -87.684939},
+  "finish": {"query": "Denver, CO", "latitude": 39.76185, "longitude": -104.881105},
   "route": {
     "distance_miles": 1000.7,
     "duration_hours": 15.93,
@@ -103,6 +105,12 @@ response, route geometry shortened):
   "attribution": "openrouteservice.org | OpenStreetMap contributors"
 }
 ```
+
+**Checking the numbers.** 1,000.7 miles at 10 mpg uses 100.07 gallons. The two
+stops buy 7.8 gal × $2.927 = $22.83 and 44.3 gal × $2.799 = $124.00, so 52.1 gallons
+for $146.83. The remaining 47.97 gallons come from the starting tank, costed at the
+optional $3.50: $167.91. Total $314.74. (The planner keeps 2 gallons of the 50 in
+reserve for detours to stations, so long trips use at most 48 from the start tank.)
 
 **Total cost.** The vehicle starts with a full tank. `fuel_purchased_cost_usd` is
 what is spent at the stops. If `starting_fuel_price_usd` is given, the starting

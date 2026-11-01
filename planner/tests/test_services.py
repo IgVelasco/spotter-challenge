@@ -75,3 +75,21 @@ def test_same_start_and_finish_skips_the_routing_call(ors_replay, db):
     assert trip.route.distance_miles == 0
     assert trip.stops == []
     assert trip.routing_calls == 0
+
+
+def test_trip_within_one_tank_skips_loading_stations(
+    ors_replay, real_stations, django_assert_num_queries
+):
+    ors_replay("ors_chicago_milwaukee.json")
+
+    with django_assert_num_queries(0):
+        services.plan_trip(CHICAGO, MILWAUKEE)
+
+
+def test_long_trip_loads_stations_in_a_single_query(
+    ors_replay, real_stations, django_assert_num_queries
+):
+    ors_replay("ors_chicago_denver.json.gz")
+
+    with django_assert_num_queries(1):
+        services.plan_trip(CHICAGO, DENVER)

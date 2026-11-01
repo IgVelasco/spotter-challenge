@@ -224,3 +224,21 @@ def test_map_page_shows_errors(client):
 
     assert response.status_code == 400
     assert b"Atlantis" in response.content
+
+
+def test_response_echoes_what_the_caller_sent(client, ors_replay, real_stations):
+    ors_replay("ors_chicago_milwaukee.json")
+    finish = {"latitude": 43.0389, "longitude": -87.9065}
+
+    body = post(client, {"start": "Chicago, IL", "finish": finish}).json()
+
+    assert body["start"] == {"query": "Chicago, IL", "latitude": 41.837045, "longitude": -87.684939}
+    assert body["finish"]["query"] == finish
+
+
+def test_overlong_location_text_is_rejected_before_lookup(client):
+    error = assert_error(
+        post(client, {"start": "A" * 300 + ", IL", "finish": "Denver, CO"}), 400, "invalid_request"
+    )
+
+    assert "255" in error["details"]["start"][0]
