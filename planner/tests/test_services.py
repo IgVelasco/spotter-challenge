@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 
 import pytest
@@ -93,3 +94,24 @@ def test_long_trip_loads_stations_in_a_single_query(
 
     with django_assert_num_queries(1):
         services.plan_trip(CHICAGO, DENVER)
+
+
+def test_each_plan_logs_one_json_line_with_timings_and_no_locations(
+    ors_replay, real_stations, caplog
+):
+    ors_replay("ors_chicago_denver.json.gz")
+    caplog.set_level("INFO", logger="planner")
+
+    trip = services.plan_trip(CHICAGO, DENVER)
+
+    [record] = [r for r in caplog.records if r.name == "planner.services"]
+    entry = json.loads(record.getMessage())
+    assert entry["event"] == "trip_planned"
+    assert entry["distance_miles"] == pytest.approx(1000.7, abs=0.1)
+    assert entry["fuel_stops"] == len(trip.stops)
+    assert entry["candidate_stations"] > entry["fuel_stops"]
+    assert entry["routing_api_calls"] == 1
+    for stage in ("routing_ms", "matching_ms", "planning_ms", "total_ms"):
+        assert entry[stage] >= 0
+    assert str(CHICAGO.latitude) not in record.getMessage()
+    assert all(stop.station.name not in record.getMessage() for stop in trip.stops)

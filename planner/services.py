@@ -1,5 +1,9 @@
 """Plan a trip: route it, find stations along it, and choose where to buy fuel."""
 
+import json
+import logging
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -13,6 +17,8 @@ from planner.routing import Route, fetch_route
 CORRIDOR_MILES = 10
 # Plan as if the tank were smaller so a detour to a station and back always fits.
 PLANNING_RANGE_MILES = VEHICLE_RANGE_MILES - 2 * CORRIDOR_MILES
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -41,21 +47,25 @@ class TripPlan:
 
 def plan_trip(start: Point, finish: Point, starting_fuel_price: Decimal | None = None):
     """Raises LocationError, RoutingError or InfeasibleRoute with user-facing messages."""
-    if start == finish:
-        route, routing_calls = _stationary_route(start), 0
-    else:
-        route, routing_calls = fetch_route(start, finish), 1
+    timer = _StageTimer()
+    with timer("routing"):
+        if start == finish:
+            route, routing_calls = _stationary_route(start), 0
+        else:
+            route, routing_calls = fetch_route(start, finish), 1
 
     candidates = []
-    if route.distance_miles > PLANNING_RANGE_MILES:
-        candidates = stations_along_route(
-            route.coordinates, route.distance_miles, _stations(), CORRIDOR_MILES
+    with timer("matching"):
+        if route.distance_miles > PLANNING_RANGE_MILES:
+            candidates = stations_along_route(
+                route.coordinates, route.distance_miles, _stations(), CORRIDOR_MILES
+            )
+    with timer("planning"):
+        plan = plan_fuel_stops(
+            [FuelStop(c.mile, c.station.price_per_gallon, c) for c in candidates],
+            route.distance_miles,
+            range_miles=PLANNING_RANGE_MILES,
         )
-    plan = plan_fuel_stops(
-        [FuelStop(c.mile, c.station.price_per_gallon, c) for c in candidates],
-        route.distance_miles,
-        range_miles=PLANNING_RANGE_MILES,
-    )
     stops = [
         PlannedStop(p.stop.ref.station, p.stop.ref.mile, p.stop.ref.offset_miles, p.gallons, p.cost)
         for p in plan.purchases
@@ -67,6 +77,19 @@ def plan_trip(start: Point, finish: Point, starting_fuel_price: Decimal | None =
     if starting_fuel_price is not None:
         starting_fuel_cost = Decimal(str(round(starting_fuel_gallons, 4))) * starting_fuel_price
 
+    # Counts and timings only: no places or coordinates, so logs don't record journeys.
+    logger.info(
+        json.dumps(
+            {
+                "event": "trip_planned",
+                "distance_miles": round(route.distance_miles, 1),
+                "candidate_stations": len(candidates),
+                "fuel_stops": len(stops),
+                "routing_api_calls": routing_calls,
+                **timer.milliseconds(),
+            }
+        )
+    )
     return TripPlan(
         start=start,
         finish=finish,
@@ -95,6 +118,22 @@ def _stations():
             "longitude",
         )
     )
+
+
+class _StageTimer:
+    def __init__(self):
+        self._started = time.perf_counter()
+        self._stages = {}
+
+    @contextmanager
+    def __call__(self, stage):
+        started = time.perf_counter()
+        yield
+        self._stages[f"{stage}_ms"] = round((time.perf_counter() - started) * 1000, 1)
+
+    def milliseconds(self):
+        total = round((time.perf_counter() - self._started) * 1000, 1)
+        return {**self._stages, "total_ms": total}
 
 
 def _stationary_route(point):

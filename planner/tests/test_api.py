@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from urllib.parse import parse_qs, urlparse
 
@@ -242,3 +243,18 @@ def test_overlong_location_text_is_rejected_before_lookup(client):
     )
 
     assert "255" in error["details"]["start"][0]
+
+
+def test_failed_plans_are_logged_with_their_error_code(client, failing_planner, caplog):
+    failing_planner(RoutingUnavailable("The routing provider timed out"))
+    caplog.set_level("INFO", logger="planner")
+
+    post(client, {"start": "Chicago, IL", "finish": "Denver, CO"})
+
+    [record] = [r for r in caplog.records if r.name == "planner.errors"]
+    assert record.levelname == "WARNING"
+    assert json.loads(record.getMessage()) == {
+        "event": "request_failed",
+        "status": 502,
+        "code": "routing_unavailable",
+    }

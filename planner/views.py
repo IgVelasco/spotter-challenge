@@ -1,3 +1,4 @@
+from django.db import DatabaseError
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -6,6 +7,7 @@ from rest_framework.views import APIView
 
 from planner import services
 from planner.errors import planning_error
+from planner.models import Station
 from planner.serializers import TripRequestSerializer, trip_payload
 
 
@@ -17,7 +19,17 @@ class PlanningThrottle(AnonRateThrottle):
 
 @api_view(["GET"])
 def health(request):
-    return Response({"status": "ok"})
+    """Ready only when the database answers and stations have been imported."""
+    try:
+        stations = Station.objects.count()
+    except DatabaseError:
+        return Response({"status": "unavailable", "reason": "Database unavailable"}, status=503)
+    if stations == 0:
+        return Response(
+            {"status": "unavailable", "reason": "No stations: run manage.py import_stations"},
+            status=503,
+        )
+    return Response({"status": "ok", "stations": stations})
 
 
 class RoutePlanView(APIView):

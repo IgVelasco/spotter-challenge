@@ -1,5 +1,8 @@
 """One JSON error shape for the whole API: {"error": {"code", "message", "details"?}}."""
 
+import json
+import logging
+
 from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
@@ -8,6 +11,8 @@ from rest_framework.views import exception_handler
 
 from planner.fuel import InfeasibleRoute
 from planner.routing import RouteNotFound, RoutingUnavailable
+
+logger = logging.getLogger(__name__)
 
 PLANNING_ERRORS = {
     RouteNotFound: (status.HTTP_422_UNPROCESSABLE_ENTITY, "route_not_found"),
@@ -35,15 +40,24 @@ def api_exception_handler(exc, context):
     mapping = planning_error(exc)
     if mapping is not None:
         status_code, code = mapping
-        return Response(error_body(code, str(exc)), status=status_code)
-
-    response = exception_handler(exc, context)
-    if response is None:
-        return None
-    if isinstance(exc, ValidationError):
-        response.data = error_body("invalid_request", "The request is invalid", exc.detail)
+        response = Response(error_body(code, str(exc)), status=status_code)
     else:
-        response.data = error_body(exc.default_code, str(exc.detail))
+        response = exception_handler(exc, context)
+        if response is None:
+            return None
+        if isinstance(exc, ValidationError):
+            response.data = error_body("invalid_request", "The request is invalid", exc.detail)
+        else:
+            response.data = error_body(exc.default_code, str(exc.detail))
+    logger.warning(
+        json.dumps(
+            {
+                "event": "request_failed",
+                "status": response.status_code,
+                "code": response.data["error"]["code"],
+            }
+        )
+    )
     return response
 
 

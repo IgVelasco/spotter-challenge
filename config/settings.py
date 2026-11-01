@@ -154,3 +154,13 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "UNAUTHENTICATED_USER": None,
 }
+
+
+# Logging: the planner emits one JSON line per plan and per failed request.
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {"planner": {"handlers": ["console"], "level": "INFO"}},
+}

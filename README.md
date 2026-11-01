@@ -142,7 +142,11 @@ All errors share one shape:
 | 429 | `throttled` | more than 30 plans per minute from one client |
 | 502 | `routing_unavailable` | routing provider failed, timed out or rejected the key |
 
-`GET /api/v1/health/` returns `{"status": "ok"}`.
+`GET /api/v1/health/` returns `{"status": "ok", "stations": 6435}`, or HTTP 503 with a
+reason if the database is unreachable or no stations have been imported.
+
+Each plan logs one JSON line with stage timings and counts (no places or
+coordinates), and each failed request logs its status and error code.
 
 ## How it works
 
@@ -182,7 +186,7 @@ against a brute-force search on random routes.
 ## Tests
 
 ```bash
-pytest          # 143 tests, ~10 s
+pytest          # 152 tests, ~13 s
 ruff check . && ruff format --check .
 ```
 
@@ -226,6 +230,15 @@ follows the supplied file (only 16 California rows; none in AK, HI or DC), detou
 stations are not routed, and prices are a static snapshot. See
 [`docs/follow-ups.md`](docs/follow-ups.md) for the full list and how each could be
 improved.
+
+## How this was built
+
+Built with Claude Code (Anthropic's AI coding assistant) as a pair programmer. I
+set the scope and made the product decisions (full starting tank, the optional
+starting fuel price, a fixed cost per stop, publishing the bundled data); the
+assistant did the data analysis and wrote the code test-first, checking results
+against the real dataset and real routes. Guidance given to the assistant is in
+[`CLAUDE.md`](CLAUDE.md).
 
 ## Data and attribution
 
