@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "planner",
 ]
 
@@ -151,6 +152,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "EXCEPTION_HANDLER": "planner.errors.api_exception_handler",
     "DEFAULT_THROTTLE_RATES": {"planning": "30/minute"},
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "UNAUTHENTICATED_USER": None,
 }
@@ -167,3 +169,12 @@ LOGGING = {
 
 # OpenStreetMap tiles require a Referer; send only our origin to other sites.
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# OpenAPI schema at /api/v1/schema/, Swagger UI at /api/v1/docs/ (assets from a CDN).
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Fuel Route Planner API",
+    "DESCRIPTION": "Driving route, fuel stops and fuel cost for US trips (500-mile range, 10 mpg).",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
