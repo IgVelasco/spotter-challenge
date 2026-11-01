@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from planner.corridor import haversine_miles, stations_along_route, thin_line
+from planner.corridor import haversine_miles, route_stretch, stations_along_route, thin_line
 from planner.geodata import Point
 
 MILES_PER_DEGREE_LATITUDE = 69.09
@@ -112,3 +112,49 @@ def test_thin_line_shrinks_a_real_route():
     assert thinned[0] == coordinates[0]
     assert thinned[-1] == coordinates[-1]
     assert len(thinned) < len(coordinates) / 2
+
+
+def test_route_stretch_interpolates_its_ends_on_a_straight_road():
+    stretch = route_stretch(STRAIGHT_ROUTE, STRAIGHT_MILES, STRAIGHT_MILES / 4, STRAIGHT_MILES / 2)
+
+    assert stretch == [
+        pytest.approx([-99.5, 40.0], abs=1e-3),
+        pytest.approx([-99.0, 40.0], abs=1e-3),
+    ]
+
+
+def test_route_stretch_keeps_the_vertices_inside_it():
+    route = [[-100.0, 40.0], [-99.0, 40.0], [-98.0, 40.0]]
+    total = haversine_miles(Point(40.0, -100.0), Point(40.0, -98.0))
+
+    stretch = route_stretch(route, total, total / 4, total * 3 / 4)
+
+    assert [round(lon, 2) for lon, _ in stretch] == [-99.5, -99.0, -98.5]
+
+
+def test_route_stretch_is_clipped_to_the_route():
+    stretch = route_stretch(STRAIGHT_ROUTE, STRAIGHT_MILES, -5, STRAIGHT_MILES + 5)
+
+    assert stretch == [[-100.0, 40.0], [-98.0, 40.0]]
+
+
+def test_route_stretch_uses_the_provider_mile_scale():
+    # The provider says the road is 10% longer than the drawn line; mile 55 of 110.
+    stretch = route_stretch(STRAIGHT_ROUTE, STRAIGHT_MILES * 1.1, 0, STRAIGHT_MILES * 1.1 / 2)
+
+    assert stretch[-1] == pytest.approx([-99.0, 40.0], abs=1e-3)
+
+
+def test_route_stretch_on_a_real_route_spans_the_requested_miles():
+    coordinates = json.loads(FIXTURE.read_text())["features"][0]["geometry"]["coordinates"]
+
+    stretch = route_stretch(coordinates, 92.12, 40, 50)
+
+    length = sum(
+        haversine_miles(Point(a[1], a[0]), Point(b[1], b[0]))
+        for a, b in zip(stretch, stretch[1:], strict=False)
+    )
+    assert length * 92.12 / sum(
+        haversine_miles(Point(a[1], a[0]), Point(b[1], b[0]))
+        for a, b in zip(coordinates, coordinates[1:], strict=False)
+    ) == pytest.approx(10, abs=0.01)

@@ -115,3 +115,36 @@ def thin_line(coordinates, spacing_miles):
             kept.append(coordinate)
     kept.append(coordinates[-1])
     return kept
+
+
+def route_stretch(coordinates, route_miles, start_mile, end_mile):
+    """The part of the route between two route miles, as [longitude, latitude] pairs.
+
+    Miles are on the provider's scale (like CorridorStation.mile); the ends are
+    interpolated and clipped to the route.
+    """
+    vertices = [Point(lat, lon) for lon, lat in coordinates]
+    lengths = [haversine_miles(a, b) for a, b in zip(vertices, vertices[1:], strict=False)]
+    polyline_miles = sum(lengths)
+    scale = polyline_miles / route_miles if route_miles else 1.0
+    start = max(start_mile * scale, 0.0)
+    end = min(end_mile * scale, polyline_miles)
+
+    stretch, travelled = [], 0.0
+    for (a, b), length in zip(
+        zip(coordinates, coordinates[1:], strict=False), lengths, strict=True
+    ):
+        segment_end = travelled + length
+        if segment_end >= start and travelled <= end:
+            if not stretch:
+                stretch.append(_along(a, b, (start - travelled) / length if length else 0.0))
+            stretch.append(_along(a, b, (end - travelled) / length) if segment_end > end else b)
+        if segment_end > end:
+            break
+        travelled = segment_end
+    return stretch
+
+
+def _along(a, b, fraction):
+    fraction = min(max(fraction, 0.0), 1.0)
+    return [a[0] + (b[0] - a[0]) * fraction, a[1] + (b[1] - a[1]) * fraction]

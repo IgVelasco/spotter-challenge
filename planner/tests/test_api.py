@@ -62,6 +62,7 @@ def test_long_trip_returns_route_stops_and_cost(client, ors_replay, real_station
         "price_per_gallon",
         "gallons",
         "cost_usd",
+        "route_stretch",
     }
     summary = body["fuel_summary"]
     assert Decimal(summary["total_fuel_cost_usd"]) == sum(
@@ -297,3 +298,16 @@ def test_map_page_lets_the_browser_send_its_origin_to_the_tile_server(client):
     response = client.get(MAP_URL, {"start": "Atlantis, CO", "finish": "Denver, CO"})
 
     assert response["Referrer-Policy"] == "strict-origin-when-cross-origin"
+
+
+def test_each_stop_comes_with_the_stretch_of_route_to_watch(client, ors_replay, real_stations):
+    ors_replay("ors_chicago_denver.json.gz")
+
+    body = post(client, {"start": "Chicago, IL", "finish": "Denver, CO"}).json()
+
+    for stop in body["fuel_stops"]:
+        stretch = stop["route_stretch"]
+        assert stretch["start_mile"] == pytest.approx(stop["route_mile"] - 5, abs=0.1)
+        assert stretch["end_mile"] == pytest.approx(stop["route_mile"] + 5, abs=0.1)
+        assert stretch["geometry"]["type"] == "LineString"
+        assert len(stretch["geometry"]["coordinates"]) >= 2

@@ -16,6 +16,12 @@
     .muted { color: #666; font-size: 13px; }
     .stop { border-top: 1px solid #e3e3e3; padding: 8px 0; font-size: 14px; }
     .error { color: #b00020; }
+    .legend { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; }
+    .legend-line { width: 32px; height: 0; border-top: 5px dashed #d97706; }
+    /* Dashes march along the route in the direction of travel. */
+    .stop-stretch { stroke-dasharray: 10 12; animation: march 0.9s linear infinite; }
+    @keyframes march { to { stroke-dashoffset: -22; } }
+    @media (prefers-reduced-motion: reduce) { .stop-stretch { animation: none; } }
   </style>
 </head>
 <body>
@@ -31,6 +37,9 @@
     <div class="muted">Total fuel cost</div>
     <div class="total" id="total"></div>
     <div class="muted" id="summary"></div>
+    <div class="legend muted"><span class="legend-line"></span>
+      Watch for the station along the orange stretch: stations are pinned at their
+      town's centre, not their exact spot.</div>
     <div id="stops"></div>
     <p class="muted" id="assumptions"></p>
   </div>
@@ -54,6 +63,10 @@
       box.append(element("div", `${stop.city}, ${stop.state} · mile ${stop.route_mile}`, "muted"));
       box.append(element("div",
         `${stop.gallons} gal × $${stop.price_per_gallon} = $${stop.cost_usd}`));
+      const stretch = stop.route_stretch;
+      box.append(element("div",
+        `Look for it between mile ${stretch.start_mile} and ${stretch.end_mile}, near ${stop.city}`,
+        "muted"));
       return box;
     }
 
@@ -77,6 +90,13 @@
 
     const stopsList = document.getElementById("stops");
     trip.fuel_stops.forEach((stop, index) => {
+      const stretch = stop.route_stretch.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+      L.polyline(stretch, { color: "#f59e0b", weight: 14, opacity: 0.35 }).addTo(map);
+      L.polyline(stretch, { color: "#d97706", weight: 5, className: "stop-stretch" })
+        .addTo(map).bindPopup(stopDetails(stop, index));
+      // Link the town pin to the part of the route that passes it.
+      L.polyline([[stop.latitude, stop.longitude], stretch[Math.floor(stretch.length / 2)]],
+        { color: "#6e7781", weight: 2, dashArray: "4 6" }).addTo(map);
       L.marker([stop.latitude, stop.longitude]).addTo(map).bindPopup(stopDetails(stop, index));
       stopsList.append(stopDetails(stop, index));
     });

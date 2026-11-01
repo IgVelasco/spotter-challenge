@@ -77,13 +77,16 @@ response, route geometry shortened):
       "opis_id": 70467, "name": "QUIKTRIP #598", "address": "I-80, EXIT 439, SR-370",
       "city": "Omaha", "state": "NE", "latitude": 41.262705, "longitude": -96.053475,
       "route_mile": 470.5, "miles_off_route": 2.7,
-      "price_per_gallon": "2.927", "gallons": 7.8, "cost_usd": "22.83"
+      "price_per_gallon": "2.927", "gallons": 7.8, "cost_usd": "22.83",
+      "route_stretch": {"start_mile": 465.5, "end_mile": 475.5,
+                        "geometry": {"type": "LineString", "coordinates": ["..."]}}
     },
     {
       "opis_id": 68368, "name": "AKAL TRAVEL CENTER", "address": "I-80 EX 360",
       "city": "Waco", "state": "NE", "latitude": 40.897, "longitude": -97.461747,
       "route_mile": 558.1, "miles_off_route": 5.2,
-      "price_per_gallon": "2.799", "gallons": 44.3, "cost_usd": "124.00"
+      "price_per_gallon": "2.799", "gallons": 44.3, "cost_usd": "124.00",
+      "route_stretch": {"start_mile": 553.1, "end_mile": 563.1, "geometry": "..."}
     }
   ],
   "fuel_summary": {
@@ -112,6 +115,11 @@ for $146.83. The remaining 47.97 gallons come from the starting tank, costed at 
 optional $3.50: $167.91. Total $314.74. (The planner keeps 2 gallons of the 50 in
 reserve for detours to stations, so long trips use at most 48 from the start tank.)
 
+**Where to stop.** A stop's `latitude`/`longitude` is its town's centre (see
+[How it works](#how-it-works)), so each stop also has a `route_stretch`: the 10 miles
+of route around its `route_mile`, where the road passes that town. The map animates
+these stretches in orange as "watch for the station here".
+
 **Total cost.** The vehicle starts with a full tank. `fuel_purchased_cost_usd` is
 what is spent at the stops. If `starting_fuel_price_usd` is given, the starting
 fuel actually burned is costed too and included in `total_fuel_cost_usd`; without
@@ -121,7 +129,9 @@ decimals.
 
 ### `GET /api/v1/route-plan/map/?start=..&finish=..[&starting_fuel_price_usd=..]`
 
-The same plan drawn on a Leaflet map with the stops and totals. Every JSON
+The same plan drawn on a Leaflet map with the stops and totals; each stop's
+`route_stretch` is highlighted with an animated orange line (static if the browser
+asks for reduced motion). Every JSON
 response includes its `map_url`.
 
 ### Errors
@@ -186,7 +196,7 @@ against a brute-force search on random routes.
 ## Tests
 
 ```bash
-pytest          # 156 tests, ~13 s
+pytest          # 162 tests, ~14 s
 ruff check . && ruff format --check .
 ```
 
