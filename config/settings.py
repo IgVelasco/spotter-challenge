@@ -164,3 +164,6 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "loggers": {"planner": {"handlers": ["console"], "level": "INFO"}},
 }
+
+# OpenStreetMap tiles require a Referer; send only our origin to other sites.
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"

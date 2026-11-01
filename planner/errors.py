@@ -28,6 +28,18 @@ def error_body(code, message, details=None):
     return {"error": error}
 
 
+def log_request_failure(status_code, code, exc=None):
+    """One JSON log line per failed request.
+
+    Server-side failures include the exception message (provider status, timeout),
+    which never contains user input; client errors don't, as theirs echo the input.
+    """
+    entry = {"event": "request_failed", "status": status_code, "code": code}
+    if exc is not None and status_code >= 500:
+        entry["detail"] = str(exc)
+    logger.warning(json.dumps(entry))
+
+
 def planning_error(exc):
     """(status, code) for a known planning failure, or None."""
     for error_class, mapping in PLANNING_ERRORS.items():
@@ -49,15 +61,7 @@ def api_exception_handler(exc, context):
             response.data = error_body("invalid_request", "The request is invalid", exc.detail)
         else:
             response.data = error_body(exc.default_code, str(exc.detail))
-    logger.warning(
-        json.dumps(
-            {
-                "event": "request_failed",
-                "status": response.status_code,
-                "code": response.data["error"]["code"],
-            }
-        )
-    )
+    log_request_failure(response.status_code, response.data["error"]["code"], exc)
     return response
 
 

@@ -109,3 +109,13 @@ def test_error_messages_never_contain_the_api_key():
         fetch_route(CHICAGO, MILWAUKEE, transport=transport_returning(403, {"error": "denied"}))
 
     assert "test-key" not in str(error.value)
+
+
+def test_network_failure_names_the_error_type():
+    def handler(request):
+        raise httpx.ConnectError("name resolution failed", request=request)
+
+    with pytest.raises(
+        RoutingUnavailable, match=r"Could not reach the routing provider \(ConnectError\)"
+    ):
+        fetch_route(CHICAGO, MILWAUKEE, transport=httpx.MockTransport(handler))

@@ -72,15 +72,20 @@ look like. Each item says why it was deferred and roughly what it would cost.
 
 ## Operations
 
-14. **Corridor matching takes ~0.3 s** on a 2,800-mile route (pure Python, 1-mile
+14. **No retry on a failed routing call.** One ORS request failed transiently during
+   testing (cause unknown; failures weren't logged with a reason yet, now they are).
+   *Better:* one retry on timeouts and 5xx, within the email's 2–3 call budget.
+
+
+15. **Corridor matching takes ~0.3 s** on a 2,800-mile route (pure Python, 1-mile
    samples × grid cells). Fine next to the ~2 s ORS call. *Better:* vectorise with
    NumPy or simplify the route geometry first if latency matters.
 
-15. **`routing_api_calls` counts the call a plan needs, not calls actually made.** A
+16. **`routing_api_calls` counts the call a plan needs, not calls actually made.** A
     repeated trip is served from the route cache (~0.3 s instead of ~2–3 s) but still
     reports 1. *Fix:* have `fetch_route` report cache hits.
 
-16. **ORS free quota is 2,000 requests/day** (`api.heigit.org`). Routes are cached by
+17. **ORS free quota is 2,000 requests/day** (`api.heigit.org`). Routes are cached by
     endpoints and planning is throttled to 30 requests/minute per client IP, but the
     cache and throttle are per process (Django's local-memory cache). *Better:* a
     shared cache (Redis) if it runs with several workers or servers.

@@ -186,7 +186,7 @@ against a brute-force search on random routes.
 ## Tests
 
 ```bash
-pytest          # 152 tests, ~13 s
+pytest          # 156 tests, ~13 s
 ruff check . && ruff format --check .
 ```
 

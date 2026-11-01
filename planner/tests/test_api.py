@@ -257,4 +257,43 @@ def test_failed_plans_are_logged_with_their_error_code(client, failing_planner, 
         "event": "request_failed",
         "status": 502,
         "code": "routing_unavailable",
+        "detail": "The routing provider timed out",
     }
+
+
+def test_client_error_logs_omit_the_message_because_it_contains_user_input(client, caplog):
+    caplog.set_level("INFO", logger="planner")
+
+    post(client, {"start": "Atlantis, NV", "finish": "Denver, CO"})
+
+    [record] = [r for r in caplog.records if r.name == "planner.errors"]
+    assert json.loads(record.getMessage()) == {
+        "event": "request_failed",
+        "status": 400,
+        "code": "invalid_request",
+    }
+
+
+def test_map_page_failures_are_logged_like_api_failures(client, failing_planner, caplog):
+    failing_planner(RoutingUnavailable("The routing provider returned HTTP 503"))
+    caplog.set_level("INFO", logger="planner")
+
+    response = client.get(MAP_URL, {"start": "Chicago, IL", "finish": "Denver, CO"})
+
+    assert response.status_code == 502
+    [record] = [r for r in caplog.records if r.name == "planner.errors"]
+    assert json.loads(record.getMessage()) == {
+        "event": "request_failed",
+        "status": 502,
+        "code": "routing_unavailable",
+        "detail": "The routing provider returned HTTP 503",
+    }
+
+
+def test_map_page_lets_the_browser_send_its_origin_to_the_tile_server(client):
+    # OpenStreetMap's tile policy blocks pages whose Referrer-Policy strips the Referer;
+    # Django's default "same-origin" does. Sending only the origin keeps the trip's
+    # query string private.
+    response = client.get(MAP_URL, {"start": "Atlantis, CO", "finish": "Denver, CO"})
+
+    assert response["Referrer-Policy"] == "strict-origin-when-cross-origin"

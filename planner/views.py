@@ -6,7 +6,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from planner import services
-from planner.errors import planning_error
+from planner.errors import log_request_failure, planning_error
 from planner.models import Station
 from planner.serializers import TripRequestSerializer, trip_payload
 
@@ -48,7 +48,7 @@ class RoutePlanView(APIView):
 def route_map(request):
     """HTML map of the same plan the JSON API returns, for GET ?start=&finish=."""
     if not PlanningThrottle().allow_request(request, None):
-        return _map_error(request, "Too many requests, try again in a minute", 429)
+        return _map_error(request, "Too many requests, try again in a minute", 429, "throttled")
 
     serializer = TripRequestSerializer(data=request.GET.dict())
     if not serializer.is_valid():
@@ -56,7 +56,7 @@ def route_map(request):
             f"{field}: {' '.join(str(m) for m in messages)}"
             for field, messages in serializer.errors.items()
         )
-        return _map_error(request, message, 400)
+        return _map_error(request, message, 400, "invalid_request")
 
     data = serializer.validated_data
     price = data.get("starting_fuel_price_usd")
@@ -66,12 +66,14 @@ def route_map(request):
         mapping = planning_error(error)
         if mapping is None:
             raise
-        return _map_error(request, str(error), mapping[0])
+        status, code = mapping
+        return _map_error(request, str(error), status, code, error)
     queries = (request.GET["start"], request.GET["finish"])
     return render(
         request, "planner/map.html", {"trip": trip_payload(trip, request, queries, price)}
     )
 
 
-def _map_error(request, message, status):
+def _map_error(request, message, status, code, exc=None):
+    log_request_failure(status, code, exc)
     return render(request, "planner/map.html", {"error": message}, status=status)

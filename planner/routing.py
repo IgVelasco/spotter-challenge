@@ -55,7 +55,9 @@ def _request(origin, destination, transport):
     except httpx.TimeoutException as error:
         raise RoutingUnavailable("The routing provider timed out") from error
     except httpx.HTTPError as error:
-        raise RoutingUnavailable("Could not reach the routing provider") from error
+        raise RoutingUnavailable(
+            f"Could not reach the routing provider ({type(error).__name__})"
+        ) from error
 
     if response.status_code == 404:
         raise RouteNotFound(_ors_error_message(response) or "No route found between the points")
