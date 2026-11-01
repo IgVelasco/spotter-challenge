@@ -7,3 +7,4 @@ db.sqlite3
 .ruff_cache/
 # Private planning documents
 *.docx
+LOOM_SCRIPT.md
