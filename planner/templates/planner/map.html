@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fuel route plan</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; }
+    #map { position: absolute; inset: 0 340px 0 0; }
+    #panel { position: absolute; top: 0; right: 0; bottom: 0; width: 340px; overflow-y: auto;
+             box-sizing: border-box; padding: 16px; background: #fafafa; border-left: 1px solid #ddd; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .total { font-size: 28px; font-weight: 600; margin: 4px 0 12px; }
+    .muted { color: #666; font-size: 13px; }
+    .stop { border-top: 1px solid #e3e3e3; padding: 8px 0; font-size: 14px; }
+    .error { color: #b00020; }
+  </style>
+</head>
+<body>
+{% if error %}
+  <div id="panel" style="width: auto; left: 0;">
+    <h1>Fuel route plan</h1>
+    <p class="error">{{ error }}</p>
+  </div>
+{% else %}
+  <div id="map"></div>
+  <div id="panel">
+    <h1>Fuel route plan</h1>
+    <div class="muted">Total fuel cost</div>
+    <div class="total" id="total"></div>
+    <div class="muted" id="summary"></div>
+    <div id="stops"></div>
+    <p class="muted" id="assumptions"></p>
+  </div>
+  {{ trip|json_script:"trip-data" }}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    // All values are written with textContent: station names come from a CSV file.
+    const trip = JSON.parse(document.getElementById("trip-data").textContent);
+
+    function element(tag, text, className) {
+      const node = document.createElement(tag);
+      if (text !== undefined) node.textContent = text;
+      if (className) node.className = className;
+      return node;
+    }
+
+    function stopDetails(stop, index) {
+      const box = element("div", undefined, "stop");
+      box.append(element("strong", `${index + 1}. ${stop.name}`));
+      box.append(element("div", `${stop.city}, ${stop.state} · mile ${stop.route_mile}`, "muted"));
+      box.append(element("div",
+        `${stop.gallons} gal × $${stop.price_per_gallon} = $${stop.cost_usd}`));
+      return box;
+    }
+
+    const map = L.map("map");
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        + ' | Routing: <a href="https://openrouteservice.org/">openrouteservice</a>',
+    }).addTo(map);
+
+    const line = L.polyline(
+      trip.route.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
+      { color: "#1f6feb", weight: 4 }
+    ).addTo(map);
+    map.fitBounds(line.getBounds(), { padding: [24, 24] });
+
+    L.circleMarker([trip.start.latitude, trip.start.longitude], { radius: 7, color: "#2da44e" })
+      .addTo(map).bindTooltip("Start");
+    L.circleMarker([trip.finish.latitude, trip.finish.longitude], { radius: 7, color: "#cf222e" })
+      .addTo(map).bindTooltip("Finish");
+
+    const stopsList = document.getElementById("stops");
+    trip.fuel_stops.forEach((stop, index) => {
+      L.marker([stop.latitude, stop.longitude]).addTo(map).bindPopup(stopDetails(stop, index));
+      stopsList.append(stopDetails(stop, index));
+    });
+
+    const summary = trip.fuel_summary;
+    document.getElementById("total").textContent = `$${summary.total_fuel_cost_usd}`;
+    document.getElementById("summary").textContent =
+      `${trip.route.distance_miles} miles · ${trip.fuel_stops.length} fuel stops · `
+      + `${summary.gallons_purchased} gal bought of ${summary.gallons_used} gal used`;
+    document.getElementById("assumptions").textContent =
+      `Starts with a full tank (${trip.assumptions.vehicle_range_miles} mi range, `
+      + `${trip.assumptions.miles_per_gallon} mpg). Stations are shown at the centre of their town.`;
+  </script>
+{% endif %}
+</body>
+</html>

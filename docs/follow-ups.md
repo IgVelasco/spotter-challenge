@@ -76,12 +76,14 @@ look like. Each item says why it was deferred and roughly what it would cost.
    samples × grid cells). Fine next to the ~2 s ORS call. *Better:* vectorise with
    NumPy or simplify the route geometry first if latency matters.
 
-15. **Stations are cached in memory per process.** Re-running `import_stations`
-   while the server runs needs a restart to be seen (Docker always imports before
-   starting the server).
+15. **`routing_api_calls` counts the call a plan needs, not calls actually made.** A
+    repeated trip is served from the route cache (~0.3 s instead of ~2–3 s) but still
+    reports 1. *Fix:* have `fetch_route` report cache hits.
 
 16. **ORS free quota is 2,000 requests/day** (`api.heigit.org`). Routes are cached by
-   endpoints, but there's no app-level rate limit to protect the key.
+    endpoints and planning is throttled to 30 requests/minute per client IP, but the
+    cache and throttle are per process (Django's local-memory cache). *Better:* a
+    shared cache (Redis) if it runs with several workers or servers.
 
 ## Deliberately cut from the original design docs
 

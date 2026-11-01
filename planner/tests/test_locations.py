@@ -1,7 +1,7 @@
 import pytest
 
 from planner.geodata import Point
-from planner.locations import LocationError, check_in_us, resolve_city
+from planner.locations import LocationError, check_in_us, resolve_city, resolve_location
 
 
 @pytest.mark.parametrize(
@@ -59,3 +59,33 @@ def test_us_points_pass(point):
 def test_non_us_points_are_rejected(point):
     with pytest.raises(LocationError, match="United States"):
         check_in_us(point)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("Chicago, IL", (41.84, -87.68)),
+        ("41.8781,-87.6298", (41.8781, -87.6298)),
+        (" 41.8781 , -87.6298 ", (41.8781, -87.6298)),
+        ({"latitude": 41.8781, "longitude": -87.6298}, (41.8781, -87.6298)),
+    ],
+)
+def test_resolve_location_accepts_city_or_coordinates(value, expected):
+    point = resolve_location(value)
+
+    assert (point.latitude, point.longitude) == pytest.approx(expected, abs=0.01)
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        ("48.86,2.35", "outside the United States"),
+        ({"latitude": 48.86, "longitude": 2.35}, "outside the United States"),
+        ({"latitude": 41.8}, "latitude and longitude"),
+        ({"latitude": "north", "longitude": -87.6}, "latitude and longitude"),
+        (42, "City, ST"),
+    ],
+)
+def test_resolve_location_rejects_bad_values(value, message):
+    with pytest.raises(LocationError, match=message):
+        resolve_location(value)

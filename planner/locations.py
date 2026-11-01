@@ -42,3 +42,30 @@ def check_in_us(point: Point) -> None:
         if south <= point.latitude <= north and west <= point.longitude <= east:
             return
     raise LocationError(f"({point.latitude}, {point.longitude}) is outside the United States")
+
+
+def resolve_location(value) -> Point:
+    """Accept "City, ST", "lat,lon" text, or {"latitude": .., "longitude": ..}."""
+    if isinstance(value, dict):
+        try:
+            point = Point(float(value["latitude"]), float(value["longitude"]))
+        except (KeyError, TypeError, ValueError) as error:
+            raise LocationError("Coordinates need numeric latitude and longitude") from error
+    elif isinstance(value, str):
+        point = _parse_coordinates(value)
+        if point is None:
+            return resolve_city(value)
+    else:
+        raise LocationError('Use "City, ST", "lat,lon" or {"latitude", "longitude"}')
+    check_in_us(point)
+    return point
+
+
+def _parse_coordinates(text):
+    parts = text.split(",")
+    if len(parts) != 2:
+        return None
+    try:
+        return Point(float(parts[0]), float(parts[1]))
+    except ValueError:
+        return None

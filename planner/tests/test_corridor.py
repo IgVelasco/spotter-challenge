@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from planner.corridor import haversine_miles, stations_along_route
+from planner.corridor import haversine_miles, stations_along_route, thin_line
 from planner.geodata import Point
 
 MILES_PER_DEGREE_LATITUDE = 69.09
@@ -94,3 +94,21 @@ def test_real_route_finds_station_in_a_town_on_the_way():
 
     assert [f.station.name for f in found] == ["Kenosha"]
     assert 30 < found[0].mile < 70
+
+
+def test_thin_line_keeps_ends_and_drops_points_closer_than_spacing():
+    line = [[-100.0, 40.0], [-100.0, 40.001], [-100.0, 40.002], [-100.0, 40.1], [-100.0, 40.1001]]
+
+    thinned = thin_line(line, spacing_miles=1)
+
+    assert thinned == [[-100.0, 40.0], [-100.0, 40.1], [-100.0, 40.1001]]
+
+
+def test_thin_line_shrinks_a_real_route():
+    coordinates = json.loads(FIXTURE.read_text())["features"][0]["geometry"]["coordinates"]
+
+    thinned = thin_line(coordinates, spacing_miles=0.5)
+
+    assert thinned[0] == coordinates[0]
+    assert thinned[-1] == coordinates[-1]
+    assert len(thinned) < len(coordinates) / 2

@@ -100,3 +100,18 @@ def _nearby_station_indexes(grid, point, radius_miles):
     for dr in range(-rows, rows + 1):
         for dc in range(-columns, columns + 1):
             yield from grid.get((row + dr, column + dc), ())
+
+
+def thin_line(coordinates, spacing_miles):
+    """Drop vertices closer than spacing_miles to the last kept one; keep both ends."""
+    if len(coordinates) < 3:
+        return list(coordinates)
+    kept = [coordinates[0]]
+    for coordinate in coordinates[1:-1]:
+        last = kept[-1]
+        if haversine_miles(Point(last[1], last[0]), Point(coordinate[1], coordinate[0])) >= (
+            spacing_miles
+        ):
+            kept.append(coordinate)
+    kept.append(coordinates[-1])
+    return kept

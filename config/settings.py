@@ -142,3 +142,15 @@ ORS_API_KEY = os.environ.get("ORS_API_KEY", "")
 
 FUEL_PRICES_CSV = BASE_DIR / "data" / "fuel-prices-for-be-assessment.csv"
 US_PLACES_CSV = BASE_DIR / "data" / "us_places.csv"
+
+
+# API
+
+REST_FRAMEWORK = {
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
+    "EXCEPTION_HANDLER": "planner.errors.api_exception_handler",
+    "DEFAULT_THROTTLE_RATES": {"planning": "30/minute"},
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "UNAUTHENTICATED_USER": None,
+}
