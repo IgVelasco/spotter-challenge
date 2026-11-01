@@ -6,6 +6,7 @@ mile is that of its closest sample, scaled so the route's end matches the
 provider's road distance.
 """
 
+import bisect
 import math
 from dataclasses import dataclass
 from typing import Any
@@ -117,34 +118,40 @@ def thin_line(coordinates, spacing_miles):
     return kept
 
 
-def route_stretch(coordinates, route_miles, start_mile, end_mile):
-    """The part of the route between two route miles, as [longitude, latitude] pairs.
+class RouteMeasure:
+    """A route measured once, so stretches of it can be cut out cheaply.
 
-    Miles are on the provider's scale (like CorridorStation.mile); the ends are
-    interpolated and clipped to the route.
+    Miles are on the provider's scale (like CorridorStation.mile).
     """
-    vertices = [Point(lat, lon) for lon, lat in coordinates]
-    lengths = [haversine_miles(a, b) for a, b in zip(vertices, vertices[1:], strict=False)]
-    polyline_miles = sum(lengths)
-    scale = polyline_miles / route_miles if route_miles else 1.0
-    start = max(start_mile * scale, 0.0)
-    end = min(end_mile * scale, polyline_miles)
 
-    stretch, travelled = [], 0.0
-    for (a, b), length in zip(
-        zip(coordinates, coordinates[1:], strict=False), lengths, strict=True
-    ):
-        segment_end = travelled + length
-        if segment_end >= start and travelled <= end:
-            if not stretch:
-                stretch.append(_along(a, b, (start - travelled) / length if length else 0.0))
-            stretch.append(_along(a, b, (end - travelled) / length) if segment_end > end else b)
-        if segment_end > end:
-            break
-        travelled = segment_end
-    return stretch
+    def __init__(self, coordinates, route_miles):
+        self.coordinates = coordinates
+        self._cumulative = [0.0]
+        for a, b in zip(coordinates, coordinates[1:], strict=False):
+            step = haversine_miles(Point(a[1], a[0]), Point(b[1], b[0]))
+            self._cumulative.append(self._cumulative[-1] + step)
+        polyline_miles = self._cumulative[-1]
+        self._scale = polyline_miles / route_miles if route_miles else 1.0
 
+    def stretch(self, start_mile, end_mile):
+        """[longitude, latitude] pairs between two route miles, ends interpolated and clipped."""
+        if len(self.coordinates) < 2:
+            return list(self.coordinates)
+        total = self._cumulative[-1]
+        start = min(max(start_mile * self._scale, 0.0), total)
+        end = min(max(end_mile * self._scale, start), total)
+        last_segment = len(self.coordinates) - 2
+        first = min(bisect.bisect_right(self._cumulative, start) - 1, last_segment)
+        last = min(max(bisect.bisect_left(self._cumulative, end), first + 1), last_segment + 1)
+        return [
+            self._point_at(first, start),
+            *self.coordinates[first + 1 : last],
+            self._point_at(last - 1, end),
+        ]
 
-def _along(a, b, fraction):
-    fraction = min(max(fraction, 0.0), 1.0)
-    return [a[0] + (b[0] - a[0]) * fraction, a[1] + (b[1] - a[1]) * fraction]
+    def _point_at(self, segment, mile):
+        a, b = self.coordinates[segment], self.coordinates[segment + 1]
+        length = self._cumulative[segment + 1] - self._cumulative[segment]
+        fraction = (mile - self._cumulative[segment]) / length if length else 0.0
+        fraction = min(max(fraction, 0.0), 1.0)
+        return [a[0] + (b[0] - a[0]) * fraction, a[1] + (b[1] - a[1]) * fraction]

@@ -4,7 +4,7 @@ from urllib.parse import urlencode
 from django.urls import reverse
 from rest_framework import serializers
 
-from planner.corridor import route_stretch, thin_line
+from planner.corridor import RouteMeasure, thin_line
 from planner.fuel import STOP_COST_USD, VEHICLE_MPG, VEHICLE_RANGE_MILES
 from planner.locations import LocationError, resolve_location
 from planner.services import CORRIDOR_MILES
@@ -80,7 +80,7 @@ def trip_payload(trip, request, queries, starting_fuel_price=None):
                 "coordinates": thin_line(trip.route.coordinates, RESPONSE_LINE_SPACING_MILES),
             },
         },
-        "fuel_stops": [_stop_payload(stop, trip.route) for stop in trip.stops],
+        "fuel_stops": _stops_payload(trip),
         "fuel_summary": _summary_payload(trip),
         "assumptions": {
             "vehicle_range_miles": VEHICLE_RANGE_MILES,
@@ -97,7 +97,14 @@ def trip_payload(trip, request, queries, starting_fuel_price=None):
     }
 
 
-def _stop_payload(stop, route):
+def _stops_payload(trip):
+    if not trip.stops:
+        return []
+    measure = RouteMeasure(trip.route.coordinates, trip.route.distance_miles)
+    return [_stop_payload(stop, trip.route, measure) for stop in trip.stops]
+
+
+def _stop_payload(stop, route, measure):
     station = stop.station
     return {
         "opis_id": station.opis_id,
@@ -112,14 +119,14 @@ def _stop_payload(stop, route):
         "price_per_gallon": str(station.price_per_gallon.quantize(Decimal("0.001"))),
         "gallons": round(stop.gallons, 1),
         "cost_usd": _money(stop.cost),
-        "route_stretch": _stretch_payload(stop.mile, route),
+        "route_stretch": _stretch_payload(stop.mile, route, measure),
     }
 
 
-def _stretch_payload(mile, route):
+def _stretch_payload(mile, route, measure):
     start = max(mile - STOP_STRETCH_HALF_MILES, 0.0)
     end = min(mile + STOP_STRETCH_HALF_MILES, route.distance_miles)
-    coordinates = route_stretch(route.coordinates, route.distance_miles, start, end)
+    coordinates = measure.stretch(start, end)
     return {
         "start_mile": round(start, 1),
         "end_mile": round(end, 1),
