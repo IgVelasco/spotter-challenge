@@ -233,6 +233,7 @@ planner/
   templates/planner/map.html
 data/                       fuel price CSV (as supplied) and Census places
 scripts/build_us_places.py  rebuilds data/us_places.csv from Census Gazetteer files
+docs/how-it-was-built.md    design (SDD), build phases and review findings
 docs/follow-ups.md          known limitations and what a better solution would be
 ```
 
@@ -246,11 +247,30 @@ improved.
 
 ## How this was built
 
+Designed first, then built in ten reviewed phases. A short design document (SDD)
+set the architecture and the key decisions. Each phase was a vertical slice:
+written test-first, run against the real station data and recorded real routes,
+then reviewed before the next one started.
+
+| Phase | Slice | What the review changed |
+|---|---|---|
+| 0 | Scope and data review | Highway-style addresses can't be geocoded, so stations sit at town centres; the design was trimmed to a day |
+| 1 | Scaffold, Docker, CI | Dependency versions verified against PyPI |
+| 2 | Station import | 6,435 of 6,626 US stations located; the 191 left out are listed |
+| 3 | Fuel planner | Full starting tank (LA's first station is at mile 270); greedy (15–18 stops) replaced by a cost + $10/stop DP |
+| 4 | Routing and corridor | One cached ORS call; moved to the 2,000/day host |
+| 5 | API and map | JSON errors even for 404s (DEBUG off by default) |
+| 6 | Gap review against the design | Input echo, length caps, health check, structured logs |
+| 7 | Manual testing | Map tile fix; failure logging; highlighted stretch where each stop is |
+| 8 | Load testing | Route measured once per plan: +19–28% throughput on long trips |
+| 9 | OpenAPI / Swagger | Schema validated in CI; Swagger UI pinned |
+
+The design, each phase's checks and every review finding are in
+[`docs/how-it-was-built.md`](docs/how-it-was-built.md).
+
 Built with Claude Code (Anthropic's AI coding assistant) as a pair programmer. I
-set the scope and made the product decisions (full starting tank, the optional
-starting fuel price, a fixed cost per stop, publishing the bundled data); the
-assistant did the data analysis and wrote the code test-first, checking results
-against the real dataset and real routes. Guidance given to the assistant is in
+set the scope, made the product decisions and reviewed each slice; the assistant
+did the data analysis and wrote the code test-first. Its working rules are in
 [`CLAUDE.md`](CLAUDE.md).
 
 ## Data and attribution
