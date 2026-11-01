@@ -177,4 +177,6 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Driving route, fuel stops and fuel cost for US trips (500-mile range, 10 mpg).",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_DIST": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.34.1",
+    "SWAGGER_UI_FAVICON_HREF": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.34.1/favicon-32x32.png",
 }

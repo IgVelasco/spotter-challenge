@@ -53,3 +53,10 @@ def test_schema_endpoint_is_served(client):
 
     assert response.status_code == 200
     assert b"openapi: 3" in response.content
+
+
+def test_docs_page_loads_a_pinned_swagger_ui_version(client):
+    content = client.get("/api/v1/docs/").content
+
+    assert b"swagger-ui-dist@5.34.1/" in content
+    assert b"@latest" not in content
