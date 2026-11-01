@@ -2,11 +2,13 @@ from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import urlencode
 
 from django.urls import reverse
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from planner.corridor import RouteMeasure, thin_line
 from planner.fuel import STOP_COST_USD, VEHICLE_MPG, VEHICLE_RANGE_MILES
 from planner.locations import LocationError, resolve_location
+from planner.openapi import LOCATION_SCHEMA
 from planner.services import CORRIDOR_MILES
 
 # The full ORS geometry has a point every few hundred feet (~500 KB coast to coast).
@@ -18,6 +20,7 @@ STRETCH_LINE_SPACING_MILES = 0.25
 MAX_LOCATION_TEXT_LENGTH = 255
 
 
+@extend_schema_field(LOCATION_SCHEMA)
 class LocationField(serializers.Field):
     default_error_messages = {
         "invalid": "{message}",

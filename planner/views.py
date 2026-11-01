@@ -1,5 +1,6 @@
 from django.db import DatabaseError
 from django.shortcuts import render
+from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
@@ -8,6 +9,12 @@ from rest_framework.views import APIView
 from planner import services
 from planner.errors import log_request_failure, planning_error
 from planner.models import Station
+from planner.openapi import (
+    HEALTH_RESPONSES,
+    REQUEST_EXAMPLES,
+    ROUTE_PLAN_DESCRIPTION,
+    ROUTE_PLAN_RESPONSES,
+)
 from planner.serializers import TripRequestSerializer, trip_payload
 
 
@@ -17,6 +24,7 @@ class PlanningThrottle(AnonRateThrottle):
     scope = "planning"
 
 
+@extend_schema(summary="Readiness: database up and stations imported", responses=HEALTH_RESPONSES)
 @api_view(["GET"])
 def health(request):
     """Ready only when the database answers and stations have been imported."""
@@ -35,6 +43,13 @@ def health(request):
 class RoutePlanView(APIView):
     throttle_classes = [PlanningThrottle]
 
+    @extend_schema(
+        summary="Plan fuel stops and cost for a US trip",
+        description=ROUTE_PLAN_DESCRIPTION,
+        request=TripRequestSerializer,
+        examples=REQUEST_EXAMPLES,
+        responses=ROUTE_PLAN_RESPONSES,
+    )
     def post(self, request):
         serializer = TripRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

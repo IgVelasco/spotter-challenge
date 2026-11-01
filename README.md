@@ -32,6 +32,8 @@ curl -X POST http://localhost:8000/api/v1/route-plan/ \
 Or open the map: <http://localhost:8000/api/v1/route-plan/map/?start=Chicago,%20IL&finish=Denver,%20CO>
 
 A Postman collection is in [`postman/fuel-route-planner.postman_collection.json`](postman/fuel-route-planner.postman_collection.json).
+Interactive API docs (Swagger UI): <http://localhost:8000/api/v1/docs/>; the OpenAPI 3
+schema is at `/api/v1/schema/`.
 
 ## Local setup
 
@@ -196,7 +198,7 @@ against a brute-force search on random routes.
 ## Tests
 
 ```bash
-pytest          # 162 tests, ~14 s
+pytest          # 169 tests, ~14 s
 ruff check . && ruff format --check .
 ```
 
@@ -220,6 +222,7 @@ planner/
   views.py                  HTTP endpoints (API + map page)
   serializers.py            request validation and response shape
   errors.py                 the single JSON error format
+  openapi.py                OpenAPI examples and error responses (Swagger UI)
   services.py               plan_trip: route -> stations -> fuel plan -> totals
   routing.py                openrouteservice client (one call, cached)
   corridor.py               stations near the route and their route mile
