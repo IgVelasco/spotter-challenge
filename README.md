@@ -162,10 +162,32 @@ coordinates), and each failed request logs its status and error code.
 
 ## How it works
 
-```
-start/finish ──> resolve (offline Census places) ──> ORS route (1 call, cached)
-     ──> stations within 10 mi of the route, with their route mile
-     ──> fuel planner (cost + $10/stop, 480-mile planning range) ──> JSON / map
+```mermaid
+flowchart TD
+    subgraph prep["Once, at deploy: manage.py import_stations"]
+        CSV[/"Fuel price CSV file<br/>8,151 rows, no coordinates"/] -- "read" --> IMP["Keep US rows, highest price per station,<br/>place each at its town's centre"]
+        GAZ[/"Census places file<br/>data/us_places.csv: town → lat/lon"/] -- "read" --> IMP
+        IMP -- "write" --> DB[("SQLite: Station table<br/>6,435 stations with price + lat/lon")]
+    end
+
+    subgraph req["Per request: POST /api/v1/route-plan/"]
+        IN["start, finish<br/>'City, ST' / 'lat,lon' / {latitude, longitude}"] --> VAL["Validate<br/>serializers.py"]
+        VAL --> LOC["Resolve places offline<br/>locations.py"]
+        LOC --> CACHE{"Route<br/>cached?"}
+        CACHE -- "no" --> ORS["openrouteservice<br/>the only external call"]
+        ORS --> ROUTE["Route geometry + road miles<br/>routing.py"]
+        CACHE -- "yes, 24 h" --> ROUTE
+        ROUTE --> SHORT{"Over 480 miles?"}
+        SHORT -- "yes" --> COR["Stations within 10 mi of the route,<br/>with their route mile<br/>corridor.py"]
+        SHORT -- "no, one tank is enough" --> FUEL
+        COR --> FUEL["Choose stops: min fuel cost + $10/stop<br/>dynamic program, 480-mile planning range<br/>fuel.py"]
+        FUEL --> OUT["JSON: route, stops, route stretches, costs<br/>+ map_url"]
+    end
+
+    GAZ -. "loaded into memory on first request" .-> LOC
+    DB -- "1 query per plan" --> COR
+    OUT -. "map_url" .-> MAP["HTML map<br/>Leaflet + OSM tiles"]
+    VAL & LOC & ORS & FUEL -. "any failure" .-> ERR["One JSON error format<br/>errors.py: 400 / 422 / 429 / 502"]
 ```
 
 **Station locations.** The price list has no coordinates, and its addresses are
