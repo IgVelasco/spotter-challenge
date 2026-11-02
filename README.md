@@ -164,10 +164,10 @@ coordinates), and each failed request logs its status and error code.
 
 ```mermaid
 flowchart TD
-    subgraph prep["Once, at deploy: import_stations"]
-        CSV[("Fuel price CSV<br/>8,151 rows")] --> IMP["Keep US rows, highest price per station,<br/>place each at its town's centre"]
-        GAZ[("Census places<br/>data/us_places.csv")] --> IMP
-        IMP --> DB[("Station table<br/>6,435 stations")]
+    subgraph prep["Once, at deploy: manage.py import_stations"]
+        CSV[/"Fuel price CSV file<br/>8,151 rows, no coordinates"/] -- "read" --> IMP["Keep US rows, highest price per station,<br/>place each at its town's centre"]
+        GAZ[/"Census places file<br/>data/us_places.csv: town → lat/lon"/] -- "read" --> IMP
+        IMP -- "write" --> DB[("SQLite: Station table<br/>6,435 stations with price + lat/lon")]
     end
 
     subgraph req["Per request: POST /api/v1/route-plan/"]
@@ -184,8 +184,8 @@ flowchart TD
         FUEL --> OUT["JSON: route, stops, route stretches, costs<br/>+ map_url"]
     end
 
-    GAZ -. "same file" .-> LOC
-    DB --> COR
+    GAZ -. "loaded into memory on first request" .-> LOC
+    DB -- "1 query per plan" --> COR
     OUT -. "map_url" .-> MAP["HTML map<br/>Leaflet + OSM tiles"]
     VAL & LOC & ORS & FUEL -. "any failure" .-> ERR["One JSON error format<br/>errors.py: 400 / 422 / 429 / 502"]
 ```
